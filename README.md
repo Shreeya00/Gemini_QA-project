@@ -1,12 +1,12 @@
-#  Gemini Q&A on Uploaded Text Files
+#  Gemini Q&A on Uploaded Files
 
-A Streamlit-based web app that uses **Google's Gemini 1.5 API** to answer questions based on any uploaded `.txt` dataset — perfect for use cases like academic notes, cheat sheets, articles, or domain-specific documentation.
+A Streamlit-based web app that uses **Google's Gemini 1.5 API** to answer questions based on any uploaded `.txt`,`pdf` or `docx` dataset — perfect for use cases like academic notes, cheat sheets, articles, or domain-specific documentation.
 
 ---
 
 ##  Features
 
--  Upload any `.txt` file (e.g., Computer Science topics)
+-  Upload any `.txt`,`.pdf` or `.docx` file (e.g., Computer Science topics)
 -  Ask natural language questions based on the uploaded data
 -  Uses **Gemini 1.5 Flash** for fast and cost-efficient responses
 -  Integrated with Google Generative AI API (`google-generativeai`)
@@ -18,7 +18,7 @@ A Streamlit-based web app that uses **Google's Gemini 1.5 API** to answer questi
 
 Click the button below to watch the demo:
 
-👉 [Watch Demo Video on Google Drive](https://drive.google.com/file/d/1VQslhsGLC5OsMTAXss8IATldPU1YO-bH/view?usp=sharing)
+👉 [Watch Demo Video on Google Drive](https://drive.google.com/file/d/1lffAI0PyHkTHXQuIlrBG4GsuTw0V6azQ/view?usp=sharing)
 
 ---
 
