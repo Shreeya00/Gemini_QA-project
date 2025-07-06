@@ -1,54 +1,84 @@
-from dotenv import load_dotenv
 import os
-import google.generativeai as genai
-import fitz  # PyMuPDF for PDFs
-import docx  # for Word files
+from dotenv import load_dotenv
 
-# Load API key from .env
+from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
+from langchain.vectorstores import Chroma
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain.chains import RetrievalQA
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain.schema import Document
+
+
+#Load environment variables
 load_dotenv()
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
-# Model setup
-model = genai.GenerativeModel("models/gemini-1.5-flash")
 
-# ---------- File Reading ----------
-def load_data(file_path):
+#Initialize Gemini LLM + Embeddings
+llm = ChatGoogleGenerativeAI(
+    model="gemini-1.5-flash",
+    google_api_key=os.getenv("GEMINI_API_KEY")
+)
+
+embedding = GoogleGenerativeAIEmbeddings(
+    model="models/embedding-001",
+    google_api_key=os.getenv("GEMINI_API_KEY")
+)
+
+
+#Document Loader
+def load_document(file_path):
     ext = os.path.splitext(file_path)[1].lower()
-    if ext == ".txt":
-        with open(file_path, 'r', encoding='utf-8') as file:
-            return file.read()
-    elif ext == ".pdf":
-        return extract_text_from_pdf(file_path)
+    if ext == ".pdf":
+        return PyPDFLoader(file_path).load()
+    elif ext == ".txt":
+        return TextLoader(file_path, encoding="utf-8").load()
     elif ext == ".docx":
-        return extract_text_from_docx(file_path)
+        return Docx2txtLoader(file_path).load()
     else:
-        raise ValueError("Unsupported file format")
+        raise ValueError("❌ Unsupported file format!")
 
-def extract_text_from_pdf(file_path):
-    doc = fitz.open(file_path)
-    text = ""
-    for page in doc:
-        text += page.get_text()
-    return text
 
-def extract_text_from_docx(file_path):
-    doc = docx.Document(file_path)
-    return "\n".join([para.text for para in doc.paragraphs])
+#Custom Chunking Logic
+def chunk_documents(docs, chunk_size=1000, overlap=200):
+    """Split each document's content into smaller overlapping chunks."""
+    all_chunks = []
 
-# ---------- Chunking ----------
-def chunk_text(text, max_chars=1000):
-    return [text[i:i + max_chars] for i in range(0, len(text), max_chars)]
+    for doc in docs:
+        text = doc.page_content
+        start = 0
+        while start < len(text):
+            end = start + chunk_size
+            chunk = text[start:end]
+            metadata = doc.metadata.copy()
+            all_chunks.append(Document(page_content=chunk, metadata=metadata))
+            start += chunk_size - overlap  # overlap for context retention
 
-# ---------- Gemini Q&A ----------
-def ask_question(question, chunks):
-    context = "\n\n".join(chunks[:3])  # Use top 3 chunks
-    prompt = f"""Use the context below to answer the question:
+    return all_chunks
 
-    Context:
-    {context}
 
-    Question: {question}
-    Answer:"""
+#LangChain QA Chain
+def ask_with_langchain(retriever, question):
+    qa_chain = RetrievalQA.from_chain_type(
+        llm=llm,
+        retriever=retriever,
+        return_source_documents=True
+    )
+    result = qa_chain.invoke({"query": question})
+    return result["result"]  
 
-    response = model.generate_content(prompt)
-    return response.text
+
+
+#Main Q&A Flow
+def ask_question_with_langchain(file_path, question):
+    # Step 1: Load the document
+    documents = load_document(file_path)
+
+    # Step 2: Chunk using custom function
+    chunks = chunk_documents(documents, chunk_size=1000, overlap=200)
+
+    # Step 3: Create vector DB & retriever
+    vectordb = Chroma.from_documents(chunks, embedding)
+    retriever = vectordb.as_retriever()
+
+    # Step 4: Ask the question
+    return ask_with_langchain(retriever, question)
